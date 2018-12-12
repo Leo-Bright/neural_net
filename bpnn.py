@@ -74,12 +74,13 @@ class NN:
         :param nh:隐藏单元数量
         :param no:输出单元数量
         """
-        self.ni = ni + 1  # +1 是为了偏置节点
+        # self.ni = ni + 1  # +1 是为了偏置节点
+        self.ni = ni
         self.nh = nh
         self.no = no
 
         # 激活值（输出值）
-        self.ai = [1.0] * self.ni
+        self.ai = [0.0] * self.ni
         self.ah = [1.0] * self.nh
         self.ao = [1.0] * self.no
 
@@ -88,37 +89,34 @@ class NN:
         self.wo = makeMatrix(self.nh, self.no)  # 隐藏层到输出层
         # 将权重矩阵随机化
         randomizeMatrix(self.wi, -0.2, 0.2)
-        randomizeMatrix(self.wo, -2.0, 2.0)
+        randomizeMatrix(self.wo, -0.5, 0.5)
         # 权重矩阵的上次梯度
         self.ci = makeMatrix(self.ni, self.nh)
         self.co = makeMatrix(self.nh, self.no)
 
-    def runNN(self, inputs):
+    def runNN(self, inputs_x, inputs_y):
         """
         前向传播进行分类
         :param inputs:输入
         :return:类别
         """
-        if len(inputs) != self.ni - 1:
-            print 'incorrect number of inputs'
 
-        for i in range(self.ni - 1):
-            self.ai[i] = inputs[i]
+        for i in range(self.ni):
+            if i == inputs_x or i == inputs_y:
+                self.ai[i] = 1
 
+        wi_x = self.wi[inputs_x]
+        wi_y = self.wi[inputs_y]
         for j in range(self.nh):
-            sum = 0.0
-            for i in range(self.ni):
-                sum += ( self.ai[i] * self.wi[i][j] )
-            self.ah[j] = sigmoid(sum)
+            self.ah[j] = (wi_x[j] * wi_y[j])
 
         for k in range(self.no):
             sum = 0.0
             for j in range(self.nh):
-                sum += ( self.ah[j] * self.wo[j][k] )
+                sum += (self.ah[j] * self.wo[j][k])
             self.ao[k] = sigmoid(sum)
 
         return self.ao
-
 
     def backPropagate(self, targets, N, M):
         """
@@ -151,7 +149,8 @@ class NN:
             error = 0.0
             for k in range(self.no):
                 error += output_deltas[k] * self.wo[j][k]
-            hidden_deltas[j] = error * dsigmoid(self.ah[j])
+            # hidden_deltas[j] = error * dsigmoid(self.ah[j])
+            hidden_deltas[j] = error
 
         # 更新输入层权值
         for i in range(self.ni):
@@ -167,7 +166,6 @@ class NN:
         for k in range(len(targets)):
             error = 0.5 * (targets[k] - self.ao[k]) ** 2
         return error
-
 
     def weights(self):
         """
@@ -189,10 +187,10 @@ class NN:
         :param patterns:测试数据
         """
         for p in patterns:
-            inputs = p[0]
-            print 'Inputs:', p[0], '-->', self.runNN(inputs), '\tTarget', p[1]
+            inputs_x, inputs_y, targets = p
+            print 'Inputs:', (inputs_x, inputs_y), '-->', self.runNN(inputs_x, inputs_y), '\tTarget', targets
 
-    def train(self, patterns, max_iterations=1000, N=0.5, M=0.1):
+    def train(self, patterns, max_iterations=10000, N=0.025, M=0.1):
         """
         训练
         :param patterns:训练集
@@ -202,9 +200,8 @@ class NN:
         """
         for i in range(max_iterations):
             for p in patterns:
-                inputs = p[0]
-                targets = p[1]
-                self.runNN(inputs)
+                inputs_x, inputs_y, targets = p
+                self.runNN(inputs_x, inputs_y)
                 error = self.backPropagate(targets, N, M)
             if i % 50 == 0:
                 print 'Combined error', error
@@ -212,14 +209,31 @@ class NN:
 
 
 def main():
+
+    walks = [0, 3, 5, 2, 8, 2]
+
+    node2index = {
+        0: 0,
+        3: 1,
+        5: 2,
+        2: 3,
+        8: 4
+    }
+
     pat = [
-        [[0, 0], [1]],
-        [[0, 1], [1]],
-        [[1, 0], [1]],
-        [[1, 1], [0]]
+        (0, 1, [1]),
+        (1, 2, [1]),
+        (2, 3, [1]),
+        (3, 4, [1]),
+        (0, 2, [0]),
+        (0, 3, [0]),
+        (1, 3, [0]),
+        (1, 4, [0]),
+        (2, 4, [0])
     ]
-    myNN = NN(2, 2, 1)
+    myNN = NN(5, 16, 1)
     myNN.train(pat)
+    myNN.weights()
 
 
 if __name__ == "__main__":
